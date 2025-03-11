@@ -1,15 +1,15 @@
 #![allow(unused_imports)]
+use crate::definitions_t::aligned;
+use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
-use crate::pervasive::*;
-use crate::definitions_t::aligned;
 use vstd::map::*;
 
 verus! {
 
 #[verifier(external_body)]
 pub proof fn mod_of_mul_auto()
-    ensures forall|a: nat, b: nat| b > 0 >>= aligned(#[trigger] (a * b), b)
+    ensures forall|a: nat, b: nat| b > 0 ==> aligned(#[trigger] (a * b), b)
 {
 }
 
@@ -90,7 +90,7 @@ pub proof fn multiple_offsed_mod_gt_0(a: nat, b: nat, c: nat)
         c > 0,
         aligned(b, c),
         a % c > 0,
-    ensures (a - b) % c > 0
+    ensures (a - b) % c as int > 0
 {
 }
 
@@ -179,7 +179,7 @@ pub proof fn leq_add_aligned_less(a: nat, b: nat, c: nat) {
 
 #[verifier(external_body)]
 pub proof fn aligned_transitive_auto() {
-    ensures(forall|a: nat, b: nat, c: nat| 0 < b && 0 < c && aligned(a, b) && aligned(b, c) >>= aligned(a, c));
+    ensures(forall|a: nat, b: nat, c: nat| 0 < b && 0 < c && aligned(a, b) && aligned(b, c) ==> aligned(a, c));
 }
 
 #[verifier(external_body)]

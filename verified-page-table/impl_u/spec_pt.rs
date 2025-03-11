@@ -3,12 +3,18 @@ use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
 
-use vstd::seq::*;
 use vstd::map::*;
+use vstd::seq::*;
 //use option::{*, Option::*};
+use crate::definitions_t::{
+    aligned, between, candidate_mapping_in_bounds, candidate_mapping_overlaps_existing_pmem,
+    candidate_mapping_overlaps_existing_vmem, overlap, Arch, MapResult, MemRegion, PageTableEntry,
+    ResolveResult, UnmapResult,
+};
+use crate::definitions_t::{
+    L1_ENTRY_SIZE, L2_ENTRY_SIZE, L3_ENTRY_SIZE, PAGE_SIZE, PT_BOUND_HIGH, PT_BOUND_LOW,
+};
 use crate::impl_u::l0;
-use crate::definitions_t::{ PageTableEntry, MapResult, UnmapResult, ResolveResult, Arch, overlap, MemRegion, aligned, between, candidate_mapping_in_bounds, candidate_mapping_overlaps_existing_vmem, candidate_mapping_overlaps_existing_pmem };
-use crate::definitions_t::{ PT_BOUND_LOW, PT_BOUND_HIGH, L3_ENTRY_SIZE, L2_ENTRY_SIZE, L1_ENTRY_SIZE, PAGE_SIZE };
 
 use vstd::prelude::OptionAdditionalFns;
 use vstd::prelude::ResultAdditionalSpecFns;
@@ -60,11 +66,11 @@ pub open spec fn step_Map(s1: PageTableVariables, s2: PageTableVariables, vaddr:
 }
 
 pub open spec fn step_Unmap_enabled(vaddr: nat) -> bool {
-    &&& between(vaddr, PT_BOUND_LOW, PT_BOUND_HIGH)
+    &&& between(vaddr as nat, PT_BOUND_LOW as nat, PT_BOUND_HIGH as nat)
     &&& { // The given vaddr must be aligned to some valid page size
-        ||| aligned(vaddr, L3_ENTRY_SIZE)
-        ||| aligned(vaddr, L2_ENTRY_SIZE)
-        ||| aligned(vaddr, L1_ENTRY_SIZE)
+        ||| aligned(vaddr as nat, L3_ENTRY_SIZE as nat)
+        ||| aligned(vaddr as nat, L2_ENTRY_SIZE as nat)
+        ||| aligned(vaddr as nat, L1_ENTRY_SIZE as nat)
     }
 }
 
@@ -90,11 +96,11 @@ pub open spec fn step_Resolve(s1: PageTableVariables, s2: PageTableVariables, va
         ResolveResult::Ok(base, pte) => {
             // If result is Ok, it's an existing mapping that contains vaddr..
             &&& s1.map.contains_pair(base, pte)
-            &&& between(vaddr, base, base + pte.frame.size)
+            &&& between(vaddr as nat, base, base + pte.frame.size as nat)
         },
         ResolveResult::ErrUnmapped => {
             // If result is ErrUnmapped, no mapping containing vaddr exists..
-            &&& (!exists|base: nat, pte: PageTableEntry| s1.map.contains_pair(base, pte) && between(vaddr, base, base + pte.frame.size))
+            &&& (!exists|base: nat, pte: PageTableEntry| s1.map.contains_pair(base, pte) && between(vaddr as nat, base as nat, base + pte.frame.size as nat))
         },
     }
 }
