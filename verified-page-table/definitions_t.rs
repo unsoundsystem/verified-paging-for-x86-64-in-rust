@@ -2,17 +2,18 @@
 use builtin::*;
 use builtin_macros::*;
 use crate::pervasive::*;
-use modes::*;
-use seq::*;
-use option::{*, Option::*};
-use map::*;
-use set::*;
-use set_lib::*;
-use vec::*;
-use result::{*, Result::*};
-use crate::impl_u::lib;
+use vstd::modes::*;
+use vstd::seq::*;
+//use option::{*, Option::*};
+use vstd::map::*;
+use vstd::set::*;
+use vstd::set_lib::*;
+use std::vec::*;
+//use result::{*, Result::*};
+use crate::impl_u::utils::{mult_leq_mono_both, mod_of_mul_auto, aligned_transitive_auto};
 use crate::impl_u::indexing;
-
+use vstd::prelude::*;
+use vstd::pervasive::*;
 verus! {
 
 pub spec const PT_BOUND_LOW:  nat = 0;
@@ -48,7 +49,7 @@ pub exec fn aligned_exec(addr: usize, size: usize) -> (res: bool)
     requires
         size > 0
     ensures
-        res == aligned(addr, size)
+        res == aligned(addr as nat, size as nat)
 {
     addr % size == 0
 }
@@ -74,7 +75,7 @@ pub open spec fn new_seq<T>(i: nat, e: T) -> Seq<T>
 pub proof fn lemma_new_seq<T>(i: nat, e: T)
     ensures
         new_seq(i, e).len() == i,
-        forall|j: nat| j < i ==> new_seq(i, e).index(j) === e,
+        forall|j: nat| j < i ==> new_seq(i, e).index(j as int) === e,
     decreases i
 {
     if i == 0 {
@@ -250,8 +251,8 @@ impl Clone for ArchLayerExec {
 impl ArchLayerExec {
     pub open spec fn view(self) -> ArchLayer {
         ArchLayer {
-            entry_size: self.entry_size,
-            num_entries: self.num_entries,
+            entry_size: self.entry_size as nat,
+            num_entries: self.num_entries as nat,
         }
     }
 }
@@ -270,16 +271,16 @@ impl ArchExec {
 
     pub fn entry_size(&self, layer: usize) -> (res: usize)
         requires layer < self@.layers.len()
-        ensures  res == self@.entry_size(layer)
+        ensures  res == self@.entry_size(layer as nat)
     {
-        self.layers.index(layer).entry_size
+        self.layers[layer].entry_size
     }
 
     pub fn num_entries(&self, layer: usize) -> (res: usize)
         requires layer < self@.layers.len()
-        ensures  res == self@.num_entries(layer)
+        ensures  res == self@.num_entries(layer as nat)
     {
-        self.layers.index(layer).num_entries
+        self.layers[layer].num_entries
     }
 
     pub fn index_for_vaddr(&self, layer: usize, base: usize, vaddr: usize) -> (res: usize)
@@ -288,11 +289,11 @@ impl ArchExec {
             layer < self@.layers.len(),
             vaddr >= base,
         ensures
-            res == self@.index_for_vaddr(layer, base, vaddr),
-            res == indexing::index_from_base_and_addr(base, vaddr, self@.entry_size(layer)),
+            res == self@.index_for_vaddr(layer as nat, base as nat, vaddr as nat),
+            res == indexing::index_from_base_and_addr(base as nat, vaddr as nat, self@.entry_size(layer as nat) as nat),
     {
         let es = self.entry_size(layer);
-        assert(es == self@.entry_size(layer));
+        assert(es == self@.entry_size(layer as nat));
         let offset = vaddr - base;
         assert((vaddr as nat - base as nat) == (vaddr - base) as nat);
         assume((offset as nat) / (es as nat) < 0x1_0000_0000);
@@ -328,10 +329,10 @@ impl ArchExec {
             base <= MAX_BASE,
             idx <= MAX_NUM_ENTRIES,
         ensures
-            res == self@.entry_base(layer, base, idx)
+            res == self@.entry_base(layer as nat, base as nat, idx as nat)
     {
         proof {
-            lib::mult_leq_mono_both(idx, self@.entry_size(layer), MAX_NUM_ENTRIES, MAX_ENTRY_SIZE);
+            mult_leq_mono_both(idx as nat, self@.entry_size(layer as nat) as nat, MAX_NUM_ENTRIES as nat, MAX_ENTRY_SIZE as nat);
         }
         base + idx * self.entry_size(layer)
     }
@@ -343,11 +344,11 @@ impl ArchExec {
             base <= MAX_BASE,
             idx <= MAX_NUM_ENTRIES,
         ensures
-            res == self@.next_entry_base(layer, base, idx)
+            res == self@.next_entry_base(layer as nat, base as nat, idx as nat)
     {
         proof {
             overflow_bounds();
-            let es = self@.entry_size(layer);
+            let es = self@.entry_size(layer as nat);
             assert(0 <= (idx + 1) * es <= MAX_ENTRY_SIZE * (MAX_NUM_ENTRIES + 1)) by (nonlinear_arith)
                 requires es <= MAX_ENTRY_SIZE, idx <= MAX_NUM_ENTRIES
                 { /* New instability with z3 4.10.1 */ };
@@ -407,13 +408,13 @@ impl Arch {
     pub open spec(checked) fn entry_size(self, layer: nat) -> nat
         recommends layer < self.layers.len()
     {
-        self.layers.index(layer).entry_size
+        self.layers.index(layer as int).entry_size
     }
 
     pub open spec(checked) fn num_entries(self, layer: nat) -> nat
         recommends layer < self.layers.len()
     {
-        self.layers.index(layer).num_entries
+        self.layers.index(layer as int).num_entries
     }
 
     pub open spec(checked) fn upper_vaddr(self, layer: nat, base: nat) -> nat
@@ -421,7 +422,7 @@ impl Arch {
             self.inv(),
             layer < self.layers.len(),
     {
-        self.entry_base(layer, base, self.num_entries(layer))
+        self.entry_base(layer as nat, base as nat, self.num_entries(layer) as nat)
     }
 
     pub open spec(checked) fn inv(&self) -> bool {
@@ -457,19 +458,19 @@ impl Arch {
             i <= j,
             j < self.layers.len(),
         ensures
-            aligned(self.entry_size(i), self.entry_size(j))
+            aligned(self.entry_size(i) as nat, self.entry_size(j) as nat)
         decreases (self.layers.len() - i)
     {
         if i == j {
-            assert(aligned(self.entry_size(i), self.entry_size(j))) by (nonlinear_arith)
+            assert(aligned(self.entry_size(i) as nat, self.entry_size(j)) as nat) by (nonlinear_arith)
                 requires i == j, self.entry_size(i) > 0,
             { };
         } else {
-            assert(forall_arith(|a: int, b: int| #[trigger] (a * b) == b * a));
+            assert(forall|a: int, b: int| #[trigger] (a * b) == b * a);
             self.lemma_entry_sizes_aligned(i+1,j);
-            lib::mod_of_mul_auto();
-            lib::aligned_transitive_auto();
-            assert(aligned(self.entry_size(i), self.entry_size(j)));
+            mod_of_mul_auto();
+            aligned_transitive_auto();
+            assert(aligned(self.entry_size(i) as nat, self.entry_size(j) as nat));
         }
     }
 
@@ -477,11 +478,11 @@ impl Arch {
         ensures
             forall|i: nat, j: nat|
                 self.inv() && i <= j && j < self.layers.len() ==>
-                aligned(self.entry_size(i), self.entry_size(j))
+                aligned(self.entry_size(i) as nat, self.entry_size(j) as nat)
     {
         assert_forall_by(|i: nat, j: nat| {
             requires(self.inv() && i <= j && j < self.layers.len());
-            ensures(aligned(self.entry_size(i), self.entry_size(j)));
+            ensures(aligned(self.entry_size(i) as nat, self.entry_size(j) as nat));
             self.lemma_entry_sizes_aligned(i, j);
         });
     }
@@ -520,12 +521,12 @@ impl Arch {
 #[verifier(external_body)]
 pub open spec fn x86_arch_exec_spec() -> ArchExec {
     ArchExec {
-        layers: Vec { vec: vec![
+        layers: vec![
             ArchLayerExec { entry_size: L0_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L1_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L2_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L3_ENTRY_SIZE, num_entries: 512 },
-        ] },
+        ] ,
     }
 }
 
@@ -538,21 +539,21 @@ pub exec fn x86_arch_exec() -> (res: ArchExec)
         x86_arch_exec_spec()@ === x86_arch,
 {
     ArchExec {
-        layers: Vec { vec: vec![
+        layers: vec![
             ArchLayerExec { entry_size: L0_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L1_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L2_ENTRY_SIZE, num_entries: 512 },
             ArchLayerExec { entry_size: L3_ENTRY_SIZE, num_entries: 512 },
-        ] },
+        ] ,
     }
 }
 
 pub spec const x86_arch: Arch = Arch {
     layers: seq![
-        ArchLayer { entry_size: L0_ENTRY_SIZE, num_entries: 512 },
-        ArchLayer { entry_size: L1_ENTRY_SIZE, num_entries: 512 },
-        ArchLayer { entry_size: L2_ENTRY_SIZE, num_entries: 512 },
-        ArchLayer { entry_size: L3_ENTRY_SIZE, num_entries: 512 },
+        ArchLayer { entry_size: L0_ENTRY_SIZE as nat, num_entries: 512 },
+        ArchLayer { entry_size: L1_ENTRY_SIZE as nat, num_entries: 512 },
+        ArchLayer { entry_size: L2_ENTRY_SIZE as nat, num_entries: 512 },
+        ArchLayer { entry_size: L3_ENTRY_SIZE as nat, num_entries: 512 },
     ],
 };
 

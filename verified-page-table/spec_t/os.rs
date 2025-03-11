@@ -2,18 +2,22 @@
 use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
-use map::*;
-use seq::*;
-use set_lib::*;
+use vstd::map::*;
+use vstd::seq::*;
+use vstd::set_lib::*;
 
-use option::{ *, Option::* };
+//use option::{ *, Option::* };
 use crate::spec_t::{ hardware, hlspec };
 use crate::impl_u::spec_pt;
 use crate::definitions_t::{ between, MemRegion, overlap, PageTableEntry, RWOp, MapResult, UnmapResult, ResolveResult, Arch, aligned, new_seq, candidate_mapping_overlaps_existing_vmem, candidate_mapping_overlaps_existing_pmem };
 use crate::definitions_t::{ PT_BOUND_LOW, PT_BOUND_HIGH, L3_ENTRY_SIZE, L2_ENTRY_SIZE, L1_ENTRY_SIZE, PAGE_SIZE, WORD_SIZE };
 use crate::spec_t::mem::{ word_index_spec };
-use option::{ *, Option::* };
-use crate::impl_u::lib;
+//use option::{ *, Option::* };
+use crate::impl_u::utils;
+use vstd::prelude::arbitrary;
+
+use vstd::prelude::OptionAdditionalFns;
+use vstd::prelude::ResultAdditionalSpecFns;
 
 verus! {
 
@@ -89,7 +93,7 @@ impl OSVariables {
                 let (base, pte): (nat, PageTableEntry) = choose|base: nat, pte: PageTableEntry| #![auto] mappings.contains_pair(base, pte) && between(vaddr, base, base + pte.frame.size);
                 let paddr = (pte.frame.base + (vaddr - base)) as nat;
                 let pmem_idx = word_index_spec(paddr);
-                self.hw.mem[pmem_idx]
+                self.hw.mem[pmem_idx as int]
             })
     }
 

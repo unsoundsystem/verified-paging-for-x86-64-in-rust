@@ -3,15 +3,17 @@ use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
 use state_machines_macros::*;
-use map::*;
-use seq::*;
-#[allow(unused_imports)] use set::*;
+use vstd::map::*;
+use vstd::seq::*;
+#[allow(unused_imports)]
+use vstd::set::*;
 use crate::definitions_t::{ PageTableEntry, RWOp, LoadResult, StoreResult, between, aligned };
 use crate::spec_t::mem;
 use crate::spec_t::mem::{ word_index_spec };
 use crate::impl_u::l0;
 use crate::impl_u::l2_impl;
-use option::{ *, Option::* };
+//use option::{ *, Option::* };
+use vstd::prelude::OptionAdditionalFns;
 
 verus! {
 
@@ -63,7 +65,7 @@ pub open spec fn step_ReadWrite(s1: HWVariables, s2: HWVariables, vaddr: nat, pa
                 RWOp::Store { new_value, result } => {
                     if pmem_idx < s1.mem.len() && !pte.flags.is_supervisor && pte.flags.is_writable {
                         &&& result.is_Ok()
-                        &&& s2.mem === s1.mem.update(pmem_idx, new_value)
+                        &&& s2.mem === s1.mem.update(pmem_idx as int, new_value)
                     } else {
                         &&& result.is_Pagefault()
                         &&& s2.mem === s1.mem
@@ -73,7 +75,7 @@ pub open spec fn step_ReadWrite(s1: HWVariables, s2: HWVariables, vaddr: nat, pa
                     &&& s2.mem === s1.mem
                     &&& if pmem_idx < s1.mem.len() && !pte.flags.is_supervisor && (is_exec ==> !pte.flags.disable_execute) {
                         &&& result.is_Value()
-                        &&& result.get_Value_0() == s1.mem.index(pmem_idx)
+                        &&& result.get_Value_0() == s1.mem.index(pmem_idx as int)
                     } else {
                         &&& result.is_Pagefault()
                     }

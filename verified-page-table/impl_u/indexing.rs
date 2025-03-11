@@ -2,15 +2,15 @@
 use builtin::*;
 use builtin_macros::*;
 use crate::pervasive::*;
-use modes::*;
-use seq::*;
-use option::{*, Option::*};
-use map::*;
-use set::*;
-use set_lib::*;
-use vec::*;
-use result::{*, Result::*};
-use crate::impl_u::lib;
+use vstd::modes::*;
+use vstd::seq::*;
+//use option::{*, Option::*};
+use vstd::map::*;
+use vstd::set::*;
+use vstd::set_lib::*;
+use std::vec::*;
+//use result::{*, Result::*};
+use super::utils::mod_mult_zero_implies_mod_zero;
 use crate::definitions_t::{ aligned, between };
 
 verus! {
@@ -101,18 +101,18 @@ pub proof fn lemma_entry_base_from_index_support(base: nat, idx: nat, entry_size
         //         == entry_base_from_index(entry_base_from_index(base, idx, entry_size), nested_num, nested_es),
         // Support postconditions:
         // Ugly, ugly workaround for mixed triggers.
-        forall_arith(|a: nat, b: nat| nat_mul(a, b) == #[trigger] (a * b)),
+        forall|a: nat, b: nat| nat_mul(a, b) == #[trigger] (a * b),
         forall|a: nat, b: nat| nat_mul(a, b) == nat_mul(b, a),
         forall|a: nat| #[trigger] aligned(base, nat_mul(entry_size, a)) && a > 0 ==> aligned(base, entry_size),
 {
-    assert(forall_arith(|a: nat, b: nat| nat_mul(a, b) == #[trigger] (a * b))) by(nonlinear_arith);
+    assert(forall|a: nat, b: nat| nat_mul(a, b) == #[trigger] (a * b)) by(nonlinear_arith);
     assert(forall|a: nat, b: nat| nat_mul(a, b) == nat_mul(b, a)) by(nonlinear_arith);
     assert forall|a: nat|
         #[trigger] aligned(base, nat_mul(entry_size, a)) && a > 0
         implies
         aligned(base, entry_size) by
     {
-        lib::mod_mult_zero_implies_mod_zero(base, entry_size, a);
+        mod_mult_zero_implies_mod_zero(base, entry_size, a);
     };
 }
 

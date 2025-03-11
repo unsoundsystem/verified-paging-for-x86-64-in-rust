@@ -1,16 +1,19 @@
 #![allow(unused_imports)]
 use crate::pervasive::*;
-use seq::*;
-use set::*;
+use vstd::seq::*;
+use vstd::set::*;
 use crate::*;
 use builtin::*;
 use builtin_macros::*;
 use state_machines_macros::*;
-use map::*;
+use vstd::map::*;
 use crate::definitions_t::{ between, overlap, MemRegion, PageTableEntry, Flags, RWOp, LoadResult, StoreResult, MapResult, UnmapResult, ResolveResult, aligned, candidate_mapping_in_bounds, candidate_mapping_overlaps_existing_vmem, candidate_mapping_overlaps_existing_pmem };
 use crate::definitions_t::{ PT_BOUND_LOW, PT_BOUND_HIGH, L3_ENTRY_SIZE, L2_ENTRY_SIZE, L1_ENTRY_SIZE, PAGE_SIZE, WORD_SIZE };
-use option::{ *, Option::None, Option::Some };
+//use option::{ *, Option::None, Option::Some };
 use crate::spec_t::mem::{ word_index_spec };
+
+use vstd::prelude::OptionAdditionalFns;
+use vstd::prelude::ResultAdditionalSpecFns;
 
 // TODO:
 // - should Unmap be able to unmap when is_supervisor is set?
@@ -49,7 +52,7 @@ pub open spec fn mem_domain_from_mappings_contains(phys_mem_size: nat, word_idx:
         let paddr = (pte.frame.base + (vaddr - base)) as nat;
         let pmem_idx = word_index_spec(paddr);
         &&& #[trigger] mappings.contains_pair(base, pte)
-        &&& between(vaddr, base, base + pte.frame.size)
+        &&& between(vaddr as nat, base as nat, base + pte.frame.size as nat)
         &&& pmem_idx < phys_mem_size
     }
 }
@@ -68,7 +71,7 @@ pub proof fn lemma_mem_domain_from_mappings(phys_mem_size: nat, mappings: Map<na
         (forall|word_idx: nat|
             !mem_domain_from_mappings_contains(phys_mem_size, word_idx, mappings)
             && #[trigger] mem_domain_from_mappings_contains(phys_mem_size, word_idx, mappings.insert(base, pte))
-            ==> between(word_idx * WORD_SIZE as nat, base, base + pte.frame.size)),
+            ==> between(word_idx * WORD_SIZE as nat, base as nat, base + pte.frame.size as nat)),
 {
     assert forall|word_idx: nat|
         mem_domain_from_mappings_contains(phys_mem_size, word_idx, mappings)
@@ -79,7 +82,7 @@ pub proof fn lemma_mem_domain_from_mappings(phys_mem_size: nat, mappings: Map<na
             let paddr = (pte.frame.base + (vaddr - base)) as nat;
             let pmem_idx = word_index_spec(paddr);
             &&& #[trigger] mappings.contains_pair(base, pte)
-            &&& between(vaddr, base, base + pte.frame.size)
+            &&& between(vaddr as nat, base as nat, base + pte.frame.size as nat)
             &&& pmem_idx < phys_mem_size
         };
         assert(mappings.insert(base, pte).contains_pair(base2, pte2));
@@ -87,19 +90,19 @@ pub proof fn lemma_mem_domain_from_mappings(phys_mem_size: nat, mappings: Map<na
     assert forall|word_idx: nat|
         !mem_domain_from_mappings_contains(phys_mem_size, word_idx, mappings)
         && #[trigger] mem_domain_from_mappings_contains(phys_mem_size, word_idx, mappings.insert(base, pte))
-        implies between(word_idx * WORD_SIZE as nat, base, base + pte.frame.size) by
+        implies between(word_idx * WORD_SIZE as nat, base as nat, base + pte.frame.size as nat) by
     {
         let vaddr = word_idx * WORD_SIZE as nat;
         let (base2, pte2) = choose|base2: nat, pte2: PageTableEntry| {
             let paddr = (pte2.frame.base + (vaddr - base2)) as nat;
             let pmem_idx = word_index_spec(paddr);
             &&& #[trigger] mappings.insert(base, pte).contains_pair(base2, pte2)
-            &&& between(vaddr, base2, base2 + pte2.frame.size)
+            &&& between(vaddr as nat, base2 as nat, base2 + pte2.frame.size as nat)
             &&& pmem_idx < phys_mem_size
         };
         assert(mappings.insert(base, pte).contains_pair(base2, pte2));
-        assert(between(vaddr, base2, base2 + pte2.frame.size));
-        if !between(vaddr, base, base + pte.frame.size) {
+        assert(between(vaddr as nat, base2 as nat, base2 + pte2.frame.size as nat));
+        if !between(vaddr as nat, base as nat, base + pte.frame.size as nat) {
             assert(base2 != base || pte2 !== pte);
             if base2 != base {
                 assert(mappings.contains_pair(base2, pte2));
@@ -113,7 +116,7 @@ pub proof fn lemma_mem_domain_from_mappings(phys_mem_size: nat, mappings: Map<na
 
 pub open spec fn step_ReadWrite(c: AbstractConstants, s1: AbstractVariables, s2: AbstractVariables, vaddr: nat, op: RWOp, pte: Option<(nat, PageTableEntry)>) -> bool {
     let vmem_idx = word_index_spec(vaddr);
-    &&& aligned(vaddr, 8)
+    &&& aligned(vaddr as nat, 8)
     &&& s2.mappings === s1.mappings
     &&& match pte {
         Some((base, pte)) => {
@@ -121,7 +124,7 @@ pub open spec fn step_ReadWrite(c: AbstractConstants, s1: AbstractVariables, s2:
             let pmem_idx = word_index_spec(paddr);
             // If pte is Some, it's an existing mapping that contains vaddr..
             &&& s1.mappings.contains_pair(base, pte)
-            &&& between(vaddr, base, base + pte.frame.size)
+            &&& between(vaddr as nat, base as nat, base + pte.frame.size as nat)
             // .. and the result depends on the flags.
             &&& match op {
                 RWOp::Store { new_value, result } => {
@@ -137,7 +140,7 @@ pub open spec fn step_ReadWrite(c: AbstractConstants, s1: AbstractVariables, s2:
                     &&& s2.mem === s1.mem
                     &&& if pmem_idx < c.phys_mem_size && !pte.flags.is_supervisor && (is_exec ==> !pte.flags.disable_execute) {
                         &&& result.is_Value()
-                        &&& result.get_Value_0() == s1.mem.index(vmem_idx)
+                        &&& result.get_Value_0() == s1.mem.index(vmem_idx as nat)
                     } else {
                         &&& result.is_Pagefault()
                     }
@@ -158,8 +161,8 @@ pub open spec fn step_ReadWrite(c: AbstractConstants, s1: AbstractVariables, s2:
 }
 
 pub open spec fn step_Map_enabled(map: Map<nat,PageTableEntry>, vaddr: nat, pte: PageTableEntry) -> bool {
-    &&& aligned(vaddr, pte.frame.size)
-    &&& aligned(pte.frame.base, pte.frame.size)
+    &&& aligned(vaddr as nat, pte.frame.size as nat)
+    &&& aligned(pte.frame.base as nat, pte.frame.size as nat)
     &&& candidate_mapping_in_bounds(vaddr, pte)
     &&& { // The size of the frame must be the entry_size of a layer that supports page mappings
         ||| pte.frame.size == L3_ENTRY_SIZE
@@ -184,11 +187,11 @@ pub open spec fn step_Map(c: AbstractConstants, s1: AbstractVariables, s2: Abstr
 }
 
 pub open spec fn step_Unmap_enabled(vaddr: nat) -> bool {
-    &&& between(vaddr, PT_BOUND_LOW, PT_BOUND_HIGH)
+    &&& between(vaddr as nat, PT_BOUND_LOW as nat, PT_BOUND_HIGH as nat)
     &&& { // The given vaddr must be aligned to some valid page size
-        ||| aligned(vaddr, L3_ENTRY_SIZE)
-        ||| aligned(vaddr, L2_ENTRY_SIZE)
-        ||| aligned(vaddr, L1_ENTRY_SIZE)
+        ||| aligned(vaddr as nat, L3_ENTRY_SIZE as nat)
+        ||| aligned(vaddr as nat, L2_ENTRY_SIZE as nat)
+        ||| aligned(vaddr as nat, L1_ENTRY_SIZE as nat)
     }
 }
 
@@ -217,7 +220,7 @@ pub open spec fn step_Resolve(c: AbstractConstants, s1: AbstractVariables, s2: A
         ResolveResult::Ok(base, pte) => {
             // If result is Ok, it's an existing mapping that contains vaddr..
             &&& s1.mappings.contains_pair(base, pte)
-            &&& between(vaddr, base, base + pte.frame.size)
+            &&& between(vaddr as nat, base as nat, base + pte.frame.size as nat)
         },
         ResolveResult::ErrUnmapped => {
             let vmem_idx = word_index_spec(vaddr);

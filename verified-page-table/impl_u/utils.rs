@@ -3,25 +3,28 @@ use builtin::*;
 use builtin_macros::*;
 use crate::pervasive::*;
 use crate::definitions_t::aligned;
-use map::*;
+use vstd::map::*;
 
 verus! {
 
 #[verifier(external_body)]
-pub proof fn mod_of_mul_auto() {
-    ensures(forall_arith(|a: nat, b: nat| b > 0 >>= aligned(#[trigger] (a * b), b)));
+pub proof fn mod_of_mul_auto()
+    ensures forall|a: nat, b: nat| b > 0 >>= aligned(#[trigger] (a * b), b)
+{
 }
 
 #[verifier(external_body)]
-pub proof fn mod_of_mul(a: nat, b: nat) {
-    requires(b > 0);
-    ensures(aligned(a * b, b));
+pub proof fn mod_of_mul(a: nat, b: nat)
+    requires b > 0
+    ensures aligned(a * b, b)
+{
 }
 
 #[verifier(nonlinear)]
-pub proof fn mod_less_eq(a: nat, b: nat) {
-    requires(b != 0);
-    ensures(a % b <= a);
+pub proof fn mod_less_eq(a: nat, b: nat)
+    requires b != 0
+    ensures a % b <= a
+{
 }
 
 // FIXME: only valid trigger causes trigger loop
@@ -31,19 +34,20 @@ pub proof fn mod_less_eq(a: nat, b: nat) {
 // }
 
 #[verifier(external_body)]
-pub proof fn mod_add_zero(a: nat, b: nat, c: nat) {
-    requires([
+pub proof fn mod_add_zero(a: nat, b: nat, c: nat)
+    requires
         aligned(a, c),
         aligned(b, c),
         c > 0,
-    ]);
-    ensures(aligned(a + b, c));
+    ensures aligned(a + b, c)
+{
 }
 
 #[verifier(external_body)]
-pub proof fn subtract_mod_aligned(a: nat, b: nat) {
-    requires(0 < b);
-    ensures(aligned((a - (a % b)) as nat, b));
+pub proof fn subtract_mod_aligned(a: nat, b: nat)
+    requires 0 < b
+    ensures aligned((a - (a % b)) as nat, b)
+{
 }
 
 // FIXME: no valid triggers for this?
@@ -53,23 +57,24 @@ pub proof fn subtract_mod_aligned(a: nat, b: nat) {
 // }
 
 #[verifier(external_body)]
-pub proof fn mod_mult_zero_implies_mod_zero(a: nat, b: nat, c: nat) {
-    requires([
+pub proof fn mod_mult_zero_implies_mod_zero(a: nat, b: nat, c: nat)
+    requires
         aligned(a, b * c),
         c > 0,
-    ]);
-    ensures(aligned(a, b));
+    ensures aligned(a, b)
+{
 }
 
 #[verifier(external_body)]
-pub proof fn subtract_mod_eq_zero(a: nat, b: nat, c: nat) {
-    requires([
-             c > 0,
-             aligned(a, c),
-             aligned(b, c),
-             a <= b,
-    ]);
-    ensures(aligned((b - a) as nat, c));
+pub proof fn subtract_mod_eq_zero(a: nat, b: nat, c: nat)
+    requires
+        c > 0,
+        aligned(a, c),
+        aligned(b, c),
+        a <= b,
+    ensures
+        aligned((b - a) as nat, c)
+{
 }
 
 #[verifier(nonlinear)]
@@ -79,26 +84,28 @@ pub proof fn aligned_zero()
 { }
 
 #[verifier(external_body)]
-pub proof fn multiple_offsed_mod_gt_0(a: nat, b: nat, c: nat) {
-    requires([
+pub proof fn multiple_offsed_mod_gt_0(a: nat, b: nat, c: nat)
+    requires
         a > b,
         c > 0,
         aligned(b, c),
         a % c > 0,
-    ]);
-    ensures((a - b) % c > 0);
+    ensures (a - b) % c > 0
+{
 }
 
 //
 
 #[verifier(nonlinear)]
-pub proof fn mul_distributive(a: nat, b: nat) {
-    ensures((a + 1) * b == a * b + b);
+pub proof fn mul_distributive(a: nat, b: nat)
+    ensures (a + 1) * b == a * b + b
+{
 }
 
 #[verifier(nonlinear)]
-pub proof fn mul_commute(a: nat, b: nat) {
-    ensures(a * b == b * a);
+pub proof fn mul_commute(a: nat, b: nat)
+    ensures a * b == b * a
+{
 }
 
 #[verifier(nonlinear)]
@@ -172,7 +179,7 @@ pub proof fn leq_add_aligned_less(a: nat, b: nat, c: nat) {
 
 #[verifier(external_body)]
 pub proof fn aligned_transitive_auto() {
-    ensures(forall(|a: nat, b: nat, c: nat| 0 < b && 0 < c && aligned(a, b) && aligned(b, c) >>= aligned(a, c)));
+    ensures(forall|a: nat, b: nat, c: nat| 0 < b && 0 < c && aligned(a, b) && aligned(b, c) >>= aligned(a, c));
 }
 
 #[verifier(external_body)]
