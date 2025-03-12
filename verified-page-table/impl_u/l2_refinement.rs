@@ -40,7 +40,7 @@ spec fn dummy_trigger(x: l2_impl::PTDir) -> bool {
 }
 
 impl impl_spec::InterfaceSpec for PageTableImpl {
-    spec fn ispec_inv(&self, memory: mem::PageTableMemory) -> bool {
+    closed spec fn ispec_inv(&self, memory: mem::PageTableMemory) -> bool {
         exists|ghost_pt: l2_impl::PTDir| {
             let page_table = l2_impl::PageTable {
                 memory: memory,
@@ -191,22 +191,22 @@ impl impl_spec::InterfaceSpec for PageTableImpl {
 
 
     proof fn ispec_init_implies_inv(&self, memory: mem::PageTableMemory)
-        requires
-            memory.inv(),
-            memory.regions() === set![memory.cr3_spec()@],
-            memory.region_view(memory.cr3_spec()@).len() == 512,
-            (forall|i: nat| i < 512 ==> memory.region_view(memory.cr3_spec()@)[i as int] == 0),
-        ensures
-            exists|ghost_pt: l2_impl::PTDir| {
-                        let page_table = l2_impl::PageTable {
-                            memory: memory,
-                            arch: x86_arch_exec_spec(),
-                            ghost_pt: Ghost::new(ghost_pt),
-                        };
-                        &&& page_table.inv()
-                        &&& page_table.interp().inv()
-                        &&& #[trigger] dummy_trigger(ghost_pt)
-                    }
+        //requires
+            //memory.inv(),
+            //memory.regions() === set![memory.cr3_spec()@],
+            //memory.region_view(memory.cr3_spec()@).len() == 512,
+            //(forall|i: nat| i < 512 ==> memory.region_view(memory.cr3_spec()@)[i as int] == 0),
+        //ensures
+            //exists|ghost_pt: l2_impl::PTDir| {
+                        //let page_table = l2_impl::PageTable {
+                            //memory: memory,
+                            //arch: x86_arch_exec_spec(),
+                            //ghost_pt: Ghost::new(ghost_pt),
+                        //};
+                        //&&& page_table.inv()
+                        //&&& page_table.interp().inv()
+                        //&&& #[trigger] dummy_trigger(ghost_pt)
+                    //}
     {
         let ptr: usize = memory.cr3_spec().base;
         memory.cr3_facts();

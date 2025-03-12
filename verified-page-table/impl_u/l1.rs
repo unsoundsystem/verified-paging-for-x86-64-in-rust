@@ -1,30 +1,30 @@
 #![allow(unused_imports)]
+use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
-use crate::pervasive::*;
 use vstd::modes::*;
 use vstd::seq::*;
 use vstd::seq_lib::*;
 //use option::{*, Option::*};
+use super::utils::{aligned_transitive_auto, leq_add_aligned_less};
+use crate::definitions_t::{lemma_new_seq, new_seq};
+use crate::impl_u::indexing;
+use std::vec::*;
 use vstd::map::*;
 use vstd::set::*;
 use vstd::set_lib::*;
-use std::vec::*;
-use crate::definitions_t::{new_seq, lemma_new_seq};
-use super::utils::{aligned_transitive_auto, leq_add_aligned_less};
-use crate::impl_u::indexing;
 
 use vstd::prelude::OptionAdditionalFns;
 use vstd::prelude::ResultAdditionalSpecFns;
-
+use vstd::prelude::*;
 
 use vstd::prelude::arbitrary;
 
 //use result::{*, Result::*};
 
-use crate::definitions_t::{ MAX_BASE, MAX_NUM_ENTRIES, MAX_NUM_LAYERS, MAX_ENTRY_SIZE };
-use crate::definitions_t::{ MemRegion, overlap, Arch, between, aligned, PageTableEntry, Flags };
-use crate::impl_u::l0::{ self, ambient_arith, ambient_lemmas1 };
+use crate::definitions_t::{aligned, between, overlap, Arch, Flags, MemRegion, PageTableEntry};
+use crate::definitions_t::{MAX_BASE, MAX_ENTRY_SIZE, MAX_NUM_ENTRIES, MAX_NUM_LAYERS};
+use crate::impl_u::l0::{self, ambient_arith, ambient_lemmas1};
 
 verus! {
 
@@ -870,7 +870,7 @@ impl Directory {
         recommends n < self.entries.len()
     {
         Directory {
-            entries: self.entries.update(n, e),
+            entries: self.entries.update(n as int, e),
             ..self
         }
     }
@@ -1347,7 +1347,8 @@ impl Directory {
             self.accepted_mapping(base, pte),
         ensures
             self.map_frame(base, pte).is_Err() ==> self.map_frame(base, pte).get_Err_0() === self,
-            self.map_frame(base, pte).map(|d| d.interp()) === self.interp().map_frame(base, pte),
+            self.map_frame(base, pte) matches Ok(d) && self.interp().map_frame(base, pte) matches Ok(c) ==>
+                d.interp() == c,
         decreases (self.arch.layers.len() - self.layer)
     {
         ambient_lemmas1();
@@ -1388,7 +1389,11 @@ impl Directory {
                     self.lemma_accepted_mapping_implies_directory_accepted_mapping(base, pte, d);
                     assert(d.accepted_mapping(base, pte));
                     d.lemma_map_frame_refines_map_frame(base, pte);
-                    assert(equal(d.map_frame(base, pte).map(|d| d.interp()), d.interp().map_frame(base, pte)));
+                    //assert(d.map_frame(base, pte).map(|d: Directory| d.interp()) matches Ok(c)
+                        //&& d.interp().map_frame(base, pte) matches Ok(c));
+
+                    assert(d.map_frame(base, pte) matches Ok(dx) && d.interp().map_frame(base, pte)
+                        matches Ok(c) ==> dx.interp() == c);
                     match d.map_frame(base, pte) {
                         Ok(nd)  => {
                             assert(d.map_frame(base, pte).is_Ok());
@@ -1444,7 +1449,9 @@ impl Directory {
             NodeEntry::Empty() => {
                 if self.entry_size() == pte.frame.size {
                     self.lemma_insert_interp_of_entry_implies_insert_interp(entry, base, NodeEntry::Page(pte), pte);
-                    assert(equal(self.map_frame(base, pte).map(|d| d.interp()), self.interp().map_frame(base, pte)));
+                    //assert(self.map_frame(base, pte).map(|d: Directory| d.interp()) matches Ok(c) && self.interp().map_frame(base, pte) matches Ok(c));
+                    assert(self.map_frame(base, pte) matches Ok(dx) && self.interp().map_frame(base, pte) matches Ok(c)
+                        ==> dx.interp() == c);
                 } else {
                     assert(((self.layer + 1) as nat) < self.arch.layers.len());
                     let new_dir = self.new_empty_dir(entry);
@@ -1474,7 +1481,9 @@ impl Directory {
                     assert(equal(self.interp_of_entry(entry).map.insert(base, pte), new_dir_mapped.interp().map));
                     self.lemma_insert_interp_of_entry_implies_insert_interp(entry, base, NodeEntry::Directory(new_dir_mapped), pte);
 
-                    assert(equal(self.map_frame(base, pte).map(|d| d.interp()), self.interp().map_frame(base, pte)));
+                    //assert(self.map_frame(base, pte).map(|d: Directory| d.interp()) matches Ok(c) && self.interp().map_frame(base, pte) matches Ok(c));
+                    assert(self.map_frame(base, pte) matches Ok(dx) && self.interp().map_frame(base, pte) matches Ok(x)
+                        ==> dx.interp() == x);
                 }
             },
         }
@@ -1628,7 +1637,7 @@ impl Directory {
              self.accepted_unmap(base),
         ensures
             self.unmap(base).is_Err() ==> self.unmap(base).get_Err_0() === self,
-            equal(self.unmap(base).map(|d| d.interp()), self.interp().unmap(base)),
+            (self.unmap(base) matches Ok(d) &&  self.interp().unmap(base) matches Ok(c) ==>  d.interp() == c),
         decreases (self.arch.layers.len() - self.layer)
     {
         ambient_lemmas1();

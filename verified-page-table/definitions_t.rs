@@ -1,19 +1,19 @@
 #![allow(unused_imports)]
+use crate::pervasive::*;
 use builtin::*;
 use builtin_macros::*;
-use crate::pervasive::*;
 use vstd::modes::*;
 use vstd::seq::*;
 //use option::{*, Option::*};
+use std::vec::*;
 use vstd::map::*;
 use vstd::set::*;
 use vstd::set_lib::*;
-use std::vec::*;
 //use result::{*, Result::*};
-use crate::impl_u::utils::{mult_leq_mono_both, mod_of_mul_auto, aligned_transitive_auto};
 use crate::impl_u::indexing;
-use vstd::prelude::*;
+use crate::impl_u::utils::{aligned_transitive_auto, mod_of_mul_auto, mult_leq_mono_both};
 use vstd::pervasive::*;
+use vstd::prelude::*;
 verus! {
 
 pub spec const PT_BOUND_LOW:  nat = 0;
@@ -462,9 +462,10 @@ impl Arch {
         decreases (self.layers.len() - i)
     {
         if i == j {
-            assert(aligned(self.entry_size(i) as nat, self.entry_size(j)) as nat) by (nonlinear_arith)
-                requires i == j, self.entry_size(i) > 0,
-            { };
+            assert(aligned(self.entry_size(i) as nat, self.entry_size(j))) by (nonlinear_arith)
+                requires
+                    i == j,
+                    self.entry_size(i) > 0;
         } else {
             assert(forall|a: int, b: int| #[trigger] (a * b) == b * a);
             self.lemma_entry_sizes_aligned(i+1,j);
